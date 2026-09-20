@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database & LangGraph Checkpointer
+  postgres:
+    image: postgres:16-alpine
+    container_name: resolveiq-postgres
+    environment:
+      POSTGRES_USER: resolveiq_user
+      POSTGRES_PASSWORD: resolveiq_password
+      POSTGRES_DB: resolveiq
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resolveiq_user -d resolveiq"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Weaviate Vector Store
+  weaviate:
+    image: semitechnologies/weaviate:1.24.1
+    container_name: resolveiq-weaviate
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      ENABLE_MODULES: ''
+      CLUSTER_HOSTNAME: 'node1'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+
+  # FastAPI Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: resolveiq-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-120b}
+      - DATABASE_URL=postgresql+asyncpg://resolveiq_user:resolveiq_password@postgres:5432/resolveiq
+      - WEAVIATE_URL=http://weaviate:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      weaviate:
+        condition: service_started
+
+volumes:
+  pgdata:
+  weaviate_data:

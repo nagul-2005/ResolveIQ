@@ -1,4 +1,12 @@
-const API_BASE = '/api';
+// Local Vite development uses the /api proxy. Deployed static frontends must
+// call the Render API directly; VITE_API_BASE_URL remains available for custom
+// backend domains and preview environments.
+const DEFAULT_PRODUCTION_API_URL = 'https://resolveiq-backend.onrender.com';
+const BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? '' : DEFAULT_PRODUCTION_API_URL)
+).replace(/\/$/, '');
+const API_BASE = `${BASE_URL}/api`;
 
 export const api = {
   // Chat & HITL Orchestration
@@ -184,7 +192,7 @@ export const api = {
 
 
   async getHealth() {
-    const res = await fetch('/health');
+    const res = await fetch(`${BASE_URL}/health`);
     return await res.json();
   }
 };

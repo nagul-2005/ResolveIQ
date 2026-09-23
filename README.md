@@ -146,4 +146,8 @@ python backend/eval/eval_audit_replay.py
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
 3. Add Environment Variable:
-   - `VITE_API_URL`: `https://<your-render-backend-url>.onrender.com`
+   - `VITE_API_BASE_URL`: `https://resolveiq-backend.onrender.com`
+
+   The app includes this URL as its production fallback, so the chat works
+   immediately after deployment. Set `VITE_API_BASE_URL` when using a custom
+   backend domain or a separate preview backend.

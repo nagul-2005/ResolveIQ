@@ -1,5 +1,6 @@
 import sys
 import io
+from typing import Optional
 
 # Ensure UTF-8 stdout/stderr on Windows
 if sys.platform == "win32":
@@ -17,6 +18,18 @@ from app.config import settings
 from app.db.database import init_db
 from app.rag.store import knowledge_store
 from app.api.routes import router as api_router
+from app.graph.workflow import create_service_desk_graph
+
+def get_psycopg_conn_string(database_url: str) -> Optional[str]:
+    """Converts a database URL into a psycopg-compatible postgresql:// string."""
+    if not database_url or "sqlite" in database_url.lower():
+        return None
+    url = database_url
+    if "+asyncpg" in url:
+        url = url.replace("postgresql+asyncpg://", "postgresql://")
+    elif "+psycopg" in url:
+        url = url.replace("postgresql+psycopg://", "postgresql://")
+    return url
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,10 +38,33 @@ async def lifespan(app: FastAPI):
     await init_db()
     print("[ResolveIQ] Ingesting Knowledge Base into Vector Store...")
     knowledge_store.ingest_articles()
-    print("[ResolveIQ] System startup complete. Ready to serve.")
-    yield
-    # Shutdown
-    print("[ResolveIQ] Shutting down.")
+
+    # Determine Checkpointer type (AsyncPostgresSaver vs MemorySaver fallback)
+    conn_string = get_psycopg_conn_string(settings.DATABASE_URL)
+
+    if conn_string:
+        try:
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+            print(f"[ResolveIQ] Initializing AsyncPostgresSaver checkpointer...")
+            async with AsyncPostgresSaver.from_conn_string(conn_string) as checkpointer:
+                print("[ResolveIQ] Setting up LangGraph Postgres checkpoint tables...")
+                await checkpointer.setup()
+                app.state.service_desk_app = create_service_desk_graph(checkpointer)
+                print("[ResolveIQ] System startup complete with Postgres checkpointer. Ready to serve.")
+                yield
+                print("[ResolveIQ] Shutting down Postgres checkpointer connection pool.")
+        except Exception as e:
+            print(f"[ResolveIQ] AsyncPostgresSaver setup notice: {e}. Falling back to MemorySaver.")
+            from langgraph.checkpoint.memory import MemorySaver
+            app.state.service_desk_app = create_service_desk_graph(MemorySaver())
+            yield
+    else:
+        print("[ResolveIQ] SQLite / local DB detected. Initializing MemorySaver checkpointer.")
+        from langgraph.checkpoint.memory import MemorySaver
+        app.state.service_desk_app = create_service_desk_graph(MemorySaver())
+        yield
+
+    print("[ResolveIQ] Shutting down application.")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

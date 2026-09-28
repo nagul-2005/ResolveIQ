@@ -3,12 +3,13 @@ import uuid
 from langgraph.types import Command
 from app.db.database import init_db
 from app.rag.store import knowledge_store
-from app.graph.workflow import service_desk_app
+from app.graph.workflow import create_service_desk_graph
 
 @pytest.mark.asyncio
 async def test_informational_graph_flow():
     await init_db()
     knowledge_store.ingest_articles()
+    service_desk_app = create_service_desk_graph()
 
     thread_id = f"test_info_{uuid.uuid4().hex[:8]}"
     config = {"configurable": {"thread_id": thread_id}}
@@ -32,6 +33,7 @@ async def test_informational_graph_flow():
 async def test_actionable_graph_interrupt_and_resume_flow():
     await init_db()
     knowledge_store.ingest_articles()
+    service_desk_app = create_service_desk_graph()
 
     thread_id = f"test_act_{uuid.uuid4().hex[:8]}"
     config = {"configurable": {"thread_id": thread_id}}

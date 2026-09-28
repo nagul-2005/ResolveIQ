@@ -1,5 +1,5 @@
 import os
-from typing import Literal, Dict, Any
+from typing import Literal, Dict, Any, Optional
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from app.graph.state import ServiceDeskState
@@ -36,7 +36,7 @@ def route_confirmation(state: ServiceDeskState) -> Literal["execute_tool", "resp
         return "execute_tool"
     return "respond"
 
-def create_service_desk_graph():
+def create_service_desk_graph(checkpointer: Optional[Any] = None):
     """Builds and compiles the ResolveIQ LangGraph StateGraph with checkpointing."""
     builder = StateGraph(ServiceDeskState)
 
@@ -108,10 +108,8 @@ def create_service_desk_graph():
     builder.add_edge("execute_tool", "respond")
     builder.add_edge("respond", END)
 
-    # Persistent In-Memory / SQLite Checkpointer
-    checkpointer = MemorySaver()
+    # Checkpointer selection (AsyncPostgresSaver passed from lifespan or fallback MemorySaver)
+    if checkpointer is None:
+        checkpointer = MemorySaver()
     compiled_graph = builder.compile(checkpointer=checkpointer)
     return compiled_graph
-
-# Global compiled graph singleton
-service_desk_app = create_service_desk_graph()

@@ -1,16 +1,24 @@
 import uuid
 from typing import Dict, Any, Optional, List
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
 from langgraph.types import Command
 
-from app.graph.workflow import service_desk_app
 from app.services.jira_service import jira_service
 from app.services.ad_ldap_service import ad_ldap_service
 from app.db.audit import get_audit_logs
 from app.rag.store import knowledge_store
 
 router = APIRouter()
+
+def get_service_desk_app(request: Request):
+    """Retrieves compiled graph from app.state or initializes fallback."""
+    app_instance = getattr(request.app.state, "service_desk_app", None)
+    if app_instance is None:
+        from app.graph.workflow import create_service_desk_graph
+        app_instance = create_service_desk_graph()
+        request.app.state.service_desk_app = app_instance
+    return app_instance
 
 # ----------------- Request / Response Models -----------------
 
@@ -40,11 +48,12 @@ class ChatResponse(BaseModel):
 # ----------------- API Endpoints -----------------
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(req: ChatRequest):
+async def chat_endpoint(req: ChatRequest, request: Request):
     """
     Invokes or continues the LangGraph orchestration flow.
     Returns either completed output, verification-required interrupt, or confirmation-required interrupt.
     """
+    service_desk_app = get_service_desk_app(request)
     thread_id = req.thread_id or f"thread_{uuid.uuid4().hex[:12]}"
     config = {"configurable": {"thread_id": thread_id}}
 
@@ -102,10 +111,11 @@ async def chat_endpoint(req: ChatRequest):
         )
 
 @router.post("/auth/verify", response_model=ChatResponse)
-async def verify_endpoint(req: VerifyRequest):
+async def verify_endpoint(req: VerifyRequest, request: Request):
     """
     Resumes an interrupted verify_identity node with OTP.
     """
+    service_desk_app = get_service_desk_app(request)
     config = {"configurable": {"thread_id": req.thread_id}}
 
     # Validate OTP against AD/LDAP service
@@ -152,10 +162,11 @@ async def verify_endpoint(req: VerifyRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chat/confirm", response_model=ChatResponse)
-async def confirm_endpoint(req: ConfirmRequest):
+async def confirm_endpoint(req: ConfirmRequest, request: Request):
     """
     Resumes an interrupted request_confirmation node with Approve or Reject/Cancel.
     """
+    service_desk_app = get_service_desk_app(request)
     config = {"configurable": {"thread_id": req.thread_id}}
     action = "approve" if req.action.lower() in ["approve", "approved", "confirm", "yes"] else "reject"
 
@@ -235,8 +246,9 @@ async def escalate_ticket_endpoint(req: EscalateTicketRequest):
 
 
 @router.get("/history/{thread_id}")
-async def get_thread_history(thread_id: str):
+async def get_thread_history(thread_id: str, request: Request):
     """Direct read of state checkpoint history."""
+    service_desk_app = get_service_desk_app(request)
     config = {"configurable": {"thread_id": thread_id}}
     state = await service_desk_app.aget_state(config)
     return {
@@ -346,8 +358,6 @@ async def update_kb_article_endpoint(doc_id: str, req: ArticleUploadRequest):
         result=result
     )
     return result
-
-
 
 @router.get("/users")
 async def get_mock_users():
@@ -618,6 +628,3 @@ async def update_ticket_admin(ticket_id: str, req: TicketUpdateRequest):
             "resolution_notes": t.resolution_notes,
             "message": f"Ticket {ticket_id} updated successfully and synced with Jira."
         }
-
-
-

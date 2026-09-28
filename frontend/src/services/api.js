@@ -1,7 +1,7 @@
 // Local Vite development uses the /api proxy. Deployed static frontends must
 // call the Render API directly; VITE_API_BASE_URL remains available for custom
 // backend domains and preview environments.
-const DEFAULT_PRODUCTION_API_URL = 'https://resolveiq-backend.onrender.com';
+const DEFAULT_PRODUCTION_API_URL = 'https://re-24469630a9f34dd6a418bf8c0700942c.ecs.us-east-1.on.aws/';
 const BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.DEV ? '' : DEFAULT_PRODUCTION_API_URL)

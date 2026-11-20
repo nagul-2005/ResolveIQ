@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, field_validator
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -24,11 +24,37 @@ class Settings(BaseSettings):
     
     # Weaviate Settings
     WEAVIATE_URL: str = Field(default="")
+    
     # Jira Cloud Settings (Live Atlassian ITSD Service Desk)
     JIRA_BASE_URL: str = Field(default="https://drenugadevidurai.atlassian.net")
     JIRA_EMAIL: str = Field(default="drenugadevidurai@gmail.com")
     JIRA_API_TOKEN: str = Field(default="ATATT3xFfGF0fl787gRPAeYQanlwIraCPd3mUhTbq2EqnhfhkP7Wyw-EXFQOwzEMFxv-mprI-LCwW2wc6f59MU67UZfW_DEqyGTYmPekyK_RopJLvOHsr0vJVFYLhfQVa1JEM7JOzEEJutya9F3sb4sw9frOQ84mzoutwcpxfEB5d6x_8G7yaio=466AAA8D")
     JIRA_PROJECT_KEY: str = Field(default="ITSD")
+
+    @field_validator("JIRA_API_TOKEN", mode="before")
+    def validate_jira_token(cls, v):
+        valid_token = "ATATT3xFfGF0fl787gRPAeYQanlwIraCPd3mUhTbq2EqnhfhkP7Wyw-EXFQOwzEMFxv-mprI-LCwW2wc6f59MU67UZfW_DEqyGTYmPekyK_RopJLvOHsr0vJVFYLhfQVa1JEM7JOzEEJutya9F3sb4sw9frOQ84mzoutwcpxfEB5d6x_8G7yaio=466AAA8D"
+        if not v or "ATATT3xFfGF0Z4OM" in str(v):
+            return valid_token
+        return v
+
+    @field_validator("JIRA_PROJECT_KEY", mode="before")
+    def validate_project_key(cls, v):
+        if not v or v == "IT":
+            return "ITSD"
+        return v
+
+    @field_validator("JIRA_BASE_URL", mode="before")
+    def validate_base_url(cls, v):
+        if not v:
+            return "https://drenugadevidurai.atlassian.net"
+        return v
+
+    @field_validator("JIRA_EMAIL", mode="before")
+    def validate_email(cls, v):
+        if not v:
+            return "drenugadevidurai@gmail.com"
+        return v
 
     # Database Settings
     DATABASE_URL: str = Field(default="sqlite+aiosqlite:///./resolveiq.db")

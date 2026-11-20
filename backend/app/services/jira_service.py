@@ -211,10 +211,11 @@ class JiraService:
                 else:
                     primary_issuetype = "Task"
 
-                # Candidate issue types to try in JSM
+                # Candidate issue types to try in JSM (JSM projects use [System] prefixes)
                 candidates = [
-                    primary_issuetype,
                     f"[System] {primary_issuetype}",
+                    primary_issuetype,
+                    "[System] Service request",
                     "Service Request",
                     "Task"
                 ]
@@ -248,7 +249,7 @@ class JiraService:
                             jira_url = f"{settings.JIRA_BASE_URL.rstrip('/')}/browse/{ticket_id}"
                             print(f"[JiraService] Successfully created live Jira Service Desk ticket {ticket_id} ({jira_url})")
                             break
-                        elif resp.status_code == 400 and "issuetype" in resp.text:
+                        elif resp.status_code in [400, 404] and any(k in resp.text.lower() for k in ["issuetype", "issue type"]):
                             continue
                         else:
                             print(f"[JiraService] Live Jira API notice ({resp.status_code}): {resp.text}")

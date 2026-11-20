@@ -24,11 +24,11 @@ class Settings(BaseSettings):
     
     # Weaviate Settings
     WEAVIATE_URL: str = Field(default="")
-    # Jira Cloud Settings (Optional for live Jira integration)
-    JIRA_BASE_URL: str = Field(default="")
-    JIRA_EMAIL: str = Field(default="")
-    JIRA_API_TOKEN: str = Field(default="")
-    JIRA_PROJECT_KEY: str = Field(default="IT")
+    # Jira Cloud Settings (Live Atlassian ITSD Service Desk)
+    JIRA_BASE_URL: str = Field(default="https://drenugadevidurai.atlassian.net")
+    JIRA_EMAIL: str = Field(default="drenugadevidurai@gmail.com")
+    JIRA_API_TOKEN: str = Field(default="ATATT3xFfGF0fl787gRPAeYQanlwIraCPd3mUhTbq2EqnhfhkP7Wyw-EXFQOwzEMFxv-mprI-LCwW2wc6f59MU67UZfW_DEqyGTYmPekyK_RopJLvOHsr0vJVFYLhfQVa1JEM7JOzEEJutya9F3sb4sw9frOQ84mzoutwcpxfEB5d6x_8G7yaio=466AAA8D")
+    JIRA_PROJECT_KEY: str = Field(default="ITSD")
 
     # Database Settings
     DATABASE_URL: str = Field(default="sqlite+aiosqlite:///./resolveiq.db")

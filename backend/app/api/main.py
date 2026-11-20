@@ -39,6 +39,15 @@ async def lifespan(app: FastAPI):
     print("[ResolveIQ] Ingesting Knowledge Base into Vector Store...")
     knowledge_store.ingest_articles()
 
+    # Synchronize live Jira tickets on startup if configured
+    try:
+        from app.services.jira_service import JiraService
+        if JiraService.is_live_jira_configured():
+            print("[ResolveIQ] Synchronizing tickets from live Jira Cloud (ITSD)...")
+            await JiraService.sync_tickets_from_live_jira()
+    except Exception as e:
+        print(f"[ResolveIQ] Jira initial sync notice: {e}")
+
     # Determine Checkpointer type (AsyncPostgresSaver vs MemorySaver fallback)
     conn_string = get_psycopg_conn_string(settings.DATABASE_URL)
 

@@ -10,3 +10,11 @@ services:
         value: 10000
       - key: DATABASE_URL
         value: sqlite+aiosqlite:///./resolveiq.db
+      - key: JIRA_BASE_URL
+        value: https://drenugadevidurai.atlassian.net
+      - key: JIRA_EMAIL
+        value: drenugadevidurai@gmail.com
+      - key: JIRA_PROJECT_KEY
+        value: ITSD
+      - key: JIRA_API_TOKEN
+        value: ATATT3xFfGF0fl787gRPAeYQanlwIraCPd3mUhTbq2EqnhfhkP7Wyw-EXFQOwzEMFxv-mprI-LCwW2wc6f59MU67UZfW_DEqyGTYmPekyK_RopJLvOHsr0vJVFYLhfQVa1JEM7JOzEEJutya9F3sb4sw9frOQ84mzoutwcpxfEB5d6x_8G7yaio=466AAA8D

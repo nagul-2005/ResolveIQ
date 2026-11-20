@@ -27,7 +27,8 @@ async def respond_node(state: ServiceDeskState) -> Dict[str, Any]:
             elif tool_name == "reset_password":
                 response_parts.append(f"🔑 **Temporary Password Generated**\n\n- **User**: `{action_result.get('user_id')}`\n- **Temporary Password**: `{action_result.get('temporary_password')}`\n- **Action Required**: Must change password on first login.\n\n*{action_result.get('message')}*")
             elif tool_name == "create_ticket":
-                response_parts.append(f"🎫 **JIRA Ticket Created**: `{action_result.get('ticket_id')}`\n\n- **Issue Type**: {action_result.get('issue_type')}\n- **Priority**: {action_result.get('priority')}\n- **Assignee**: {action_result.get('assignee')}\n- **Description**: {action_result.get('description')}\n\n*Our IT service desk team has received this ticket and will process it shortly.*")
+                jira_link_text = f" ([View in Jira Cloud]({action_result.get('jira_url')}))" if action_result.get("jira_url") else ""
+                response_parts.append(f"🎫 **JIRA Ticket Created**: `{action_result.get('ticket_id')}`{jira_link_text}\n\n- **Issue Type**: {action_result.get('issue_type')}\n- **Priority**: {action_result.get('priority')}\n- **Assignee**: {action_result.get('assignee')}\n- **Description**: {action_result.get('description')}\n\n*Our IT service desk team has received this ticket and will process it shortly.*")
             elif tool_name == "check_ticket_status":
                 response_parts.append(f"📋 **Ticket Status Details**: `{action_result.get('ticket_id')}`\n\n- **Status**: `{action_result.get('status')}`\n- **Priority**: {action_result.get('priority')}\n- **Requester**: `{action_result.get('user_id')}`\n- **Assignee**: {action_result.get('assignee')}\n- **Description**: {action_result.get('description')}\n- **Resolution Notes**: {action_result.get('resolution_notes') or 'In progress'}")
             elif tool_name == "grant_access_request":

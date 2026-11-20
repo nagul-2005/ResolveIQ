@@ -131,16 +131,26 @@ export default function MessageItem({ message, onSelectCitation }) {
                   <span>Action Execution Result</span>
                 </div>
                 {message.actionResult.ticket_id && (
-                  <a
-                    href={message.actionResult.jira_url || `https://drenugadevidurai.atlassian.net/browse/${message.actionResult.ticket_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={`Open ${message.actionResult.ticket_id} in Jira Cloud`}
-                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-indigo-200 flex items-center gap-1 transition-all shadow-sm hover:scale-105"
-                  >
-                    <span>{message.actionResult.ticket_id}</span>
-                    <ExternalLink className="w-3 h-3 text-indigo-600" />
-                  </a>
+                  message.actionResult.jira_url ? (
+                    <a
+                      href={message.actionResult.jira_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={`Open ${message.actionResult.ticket_id} in Jira Cloud`}
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-indigo-200 flex items-center gap-1 transition-all shadow-sm hover:scale-105"
+                    >
+                      <span>{message.actionResult.ticket_id}</span>
+                      <ExternalLink className="w-3 h-3 text-indigo-600" />
+                    </a>
+                  ) : (
+                    <span
+                      title="Ticket logged in Service Desk queue (Local Store)"
+                      className="bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-indigo-200 flex items-center gap-1"
+                    >
+                      <span>{message.actionResult.ticket_id}</span>
+                      <span className="text-[9px] text-slate-500 font-normal">(Queue)</span>
+                    </span>
+                  )
                 )}
               </div>
 

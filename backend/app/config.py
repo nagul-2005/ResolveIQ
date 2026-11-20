@@ -1,6 +1,9 @@
+from pathlib import Path
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "ResolveIQ IT Service Desk"
@@ -43,7 +46,10 @@ class Settings(BaseSettings):
     ]
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=[
+            str(BASE_DIR / ".env"),
+            ".env"
+        ],
         extra="ignore"
     )
 

@@ -73,6 +73,9 @@ ResolveIQ executes tier-1 and tier-2 IT support requests through a stateful **La
    - Retrieval Precision@1, Recall@3, and MRR against golden Q&A dataset.
    - Intent classification accuracy benchmark.
    - Security audit replay verification guaranteeing zero unapproved side-effect executions.
+6. **Model Context Protocol (MCP) Server**:
+   - Standard Anthropic MCP Server (`backend/app/mcp_server.py`) exposing 7 enterprise IT tools (`search_it_knowledge_base`, `create_jira_ticket`, `check_jira_ticket_status`, `escalate_jira_ticket`, `reset_ad_password`, `unlock_ad_account`, `get_security_audit_logs`).
+   - Enables native connectivity to external AI clients like **Claude Desktop**, **Cursor IDE**, and custom agent runners over standard Stdio protocol.
 
 ---
 

@@ -187,65 +187,96 @@ class JiraService:
     async def create_ticket(user_id: str, issue_type: str, description: str, priority: str = "Medium") -> Dict[str, Any]:
         """Creates a ticket in the JIRA system (Live Atlassian Cloud ITSD Service Desk or Local Mock DB)."""
         ticket_id = None
+        is_live = False
+        jira_url = None
         
         # 1. If real Atlassian Jira Cloud is configured, call Jira REST API v3
         if JiraService.is_live_jira_configured():
             try:
-                jira_url = f"{settings.JIRA_BASE_URL.rstrip('/')}/rest/api/3/issue"
+                jira_endpoint = f"{settings.JIRA_BASE_URL.rstrip('/')}/rest/api/3/issue"
                 auth = (settings.JIRA_EMAIL, settings.JIRA_API_TOKEN)
+                headers = {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                }
                 
                 # Intelligent ITIL issue type selection for Jira Service Management
                 issue_type_clean = issue_type.lower()
                 if "incident" in issue_type_clean or priority == "Critical" or "outage" in issue_type_clean:
-                    selected_issuetype = {"name": "[System] Incident"}
+                    primary_issuetype = "Incident"
                 elif "access" in issue_type_clean or "approval" in issue_type_clean:
-                    selected_issuetype = {"name": "[System] Service request with approvals"}
+                    primary_issuetype = "Service request with approvals"
                 elif "service" in issue_type_clean or "hardware" in issue_type_clean or "software" in issue_type_clean or "network" in issue_type_clean:
-                    selected_issuetype = {"name": "[System] Service request"}
+                    primary_issuetype = "Service request"
                 else:
-                    selected_issuetype = {"name": "Task"}
-                
-                payload = {
-                    "fields": {
-                        "project": {"key": settings.JIRA_PROJECT_KEY},
-                        "summary": f"[{issue_type}] {description[:80]}",
-                        "description": {
-                            "type": "doc",
-                            "version": 1,
-                            "content": [
-                                {
-                                    "type": "paragraph",
-                                    "content": [
-                                        {"type": "text", "text": f"Requester: {user_id}\n\nIssue Details:\n{description}"}
-                                    ]
-                                }
-                            ]
-                        },
-                        "issuetype": selected_issuetype
-                    }
-                }
-                
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.post(jira_url, json=payload, auth=auth)
-                    
-                    # Fallback to Task if custom issuetype name rejected
-                    if resp.status_code not in [200, 201]:
-                        payload["fields"]["issuetype"] = {"name": "Task"}
-                        resp = await client.post(jira_url, json=payload, auth=auth)
+                    primary_issuetype = "Task"
 
-                    if resp.status_code in [200, 201]:
-                        data = resp.json()
-                        ticket_id = data.get("key")
-                        print(f"[JiraService] Successfully created live Jira Service Desk ticket {ticket_id}")
-                    else:
-                        print(f"[JiraService] Live Jira API warning (status {resp.status_code}): {resp.text}")
+                # Candidate issue types to try in JSM
+                candidates = [
+                    primary_issuetype,
+                    f"[System] {primary_issuetype}",
+                    "Service Request",
+                    "Task"
+                ]
+
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    for candidate_name in candidates:
+                        payload = {
+                            "fields": {
+                                "project": {"key": settings.JIRA_PROJECT_KEY},
+                                "summary": f"[{issue_type}] {description[:80]}",
+                                "description": {
+                                    "type": "doc",
+                                    "version": 1,
+                                    "content": [
+                                        {
+                                            "type": "paragraph",
+                                            "content": [
+                                                {"type": "text", "text": f"Requester: {user_id}\n\nIssue Details:\n{description}"}
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "issuetype": {"name": candidate_name}
+                            }
+                        }
+                        resp = await client.post(jira_endpoint, json=payload, auth=auth, headers=headers)
+                        if resp.status_code in [200, 201]:
+                            data = resp.json()
+                            ticket_id = data.get("key")
+                            is_live = True
+                            jira_url = f"{settings.JIRA_BASE_URL.rstrip('/')}/browse/{ticket_id}"
+                            print(f"[JiraService] Successfully created live Jira Service Desk ticket {ticket_id} ({jira_url})")
+                            break
+                        elif resp.status_code == 400 and "issuetype" in resp.text:
+                            continue
+                        else:
+                            print(f"[JiraService] Live Jira API notice ({resp.status_code}): {resp.text}")
+                            break
             except Exception as e:
                 print(f"[JiraService] Live Jira connection error: {e}. Falling back to internal store.")
 
-        # Fallback local ticket ID generator
+        # 2. Sequential local ticket ID generator (Eliminates random numbers like ITSD-9875)
         if not ticket_id:
-            ticket_num = random.randint(1050, 9999)
-            ticket_id = f"{settings.JIRA_PROJECT_KEY}-{ticket_num}"
+            async with AsyncSessionLocal() as session:
+                res = await session.execute(
+                    select(Ticket.ticket_id).where(Ticket.ticket_id.like(f"{settings.JIRA_PROJECT_KEY}-%"))
+                )
+                existing_ids = res.scalars().all()
+                max_num = 0
+                for eid in existing_ids:
+                    try:
+                        num_part = int(eid.split("-")[-1])
+                        # Exclude random numbers from past tests (> 1000) to keep numbering clean and sequential
+                        if num_part < 1000 and num_part > max_num:
+                            max_num = num_part
+                    except (ValueError, IndexError):
+                        continue
+                
+                next_num = max_num + 1 if max_num > 0 else 1
+                ticket_id = f"{settings.JIRA_PROJECT_KEY}-{next_num}"
+                is_live = False
+                jira_url = None
         
         # Persist ticket locally for dashboard view
         async with AsyncSessionLocal() as session:
@@ -263,10 +294,17 @@ class JiraService:
             session.add(ticket)
             await session.commit()
             
+            message_text = (
+                f"Ticket {ticket_id} has been created successfully in live Jira Service Desk ({settings.JIRA_PROJECT_KEY}) queue."
+                if is_live else
+                f"Ticket {ticket_id} has been logged in the IT Service Desk ({settings.JIRA_PROJECT_KEY}) queue."
+            )
+
             return {
                 "success": True,
                 "ticket_id": ticket_id,
-                "jira_url": f"{settings.JIRA_BASE_URL.rstrip('/')}/browse/{ticket_id}",
+                "is_live": is_live,
+                "jira_url": jira_url,
                 "user_id": user_id,
                 "issue_type": issue_type,
                 "description": description,
@@ -274,7 +312,7 @@ class JiraService:
                 "priority": priority,
                 "assignee": "IT Service Desk - Tier 1",
                 "created_at": ticket.created_at.isoformat(),
-                "message": f"Ticket {ticket_id} has been created successfully in IT Service Desk (ITSD) queue."
+                "message": message_text
             }
 
     @staticmethod
